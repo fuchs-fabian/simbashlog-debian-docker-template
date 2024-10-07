@@ -7,15 +7,9 @@
 </p>
 
 <div align="center">
-  <table>
-    <tr>
-      <td>
-        <a href="https://github.com/fuchs-fabian/simbashlog-debian-docker-template">
-          <img src="https://github-readme-stats.vercel.app/api/pin/?username=fuchs-fabian&repo=simbashlog-debian-docker-template&theme=holi&hide_border=true&border_radius=10" alt="Repository simbashlog-debian-docker-template"/>
-        </a>
-      </td>
-    </tr>
-  </table>
+  <a href="https://github.com/fuchs-fabian/simbashlog-debian-docker-template">
+    <img src="https://github-readme-stats.vercel.app/api/pin/?username=fuchs-fabian&repo=simbashlog-debian-docker-template&theme=holi&hide_border=true&border_radius=10" alt="Repository simbashlog-debian-docker-template"/>
+  </a>
 </div>
 
 ## Description
