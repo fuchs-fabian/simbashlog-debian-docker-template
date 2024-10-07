@@ -75,7 +75,7 @@ function log {
         }
 
     # Exit if severity is error or higher
-    if [[ "$severity_code" -lt 3 ]]; then
+    if [[ "$severity_code" -le 3 ]]; then
         exit 1
     fi
 }
