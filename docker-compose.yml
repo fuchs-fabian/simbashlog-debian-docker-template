@@ -1,0 +1,25 @@
+# TODO: Change `example` to the name of the service you want to run and adjust the docker-compose file to your needs
+services:
+  example:
+    container_name: example
+    # No image available, build from source
+    build:
+      context: ./src
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL
+      - CRON_SCHEDULE
+      - GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER
+    volumes:
+      # Logs - Comment out to disable logging to host
+      - type: bind
+        source: ./volumes/logs
+        target: /var/log
+        bind:
+          create_host_path: true
+      # simbashlog notifier config - Comment out if no simbashlog notifier is used
+      - type: bind
+        source: ./volumes/config
+        target: /root/.config/simbashlog-notifier
+        bind:
+          create_host_path: true
