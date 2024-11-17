@@ -1,83 +1,334 @@
 #!/usr/bin/env bash
 
-if [ -z "$LOG_LEVEL" ]; then
-    echo "Log level not set"
+# DISCLAIMER:
+# Not POSIX conform!
+#
+#
+# DESCRIPTION:
+# This script sets up a cron job for a main script.
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                LICENSES                  ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+# simbashlog:
+# https://github.com/fuchs-fabian/simbashlog/blob/main/LICENSE
+#
+#
+# simbashlog-debian-docker-template:
+# https://github.com/fuchs-fabian/simbashlog-debian-docker-template/blob/main/LICENSE
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                CONSTANTS                 ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+declare -r CONST_UNINSTALL_PYTHON_IF_SIMBASHLOG_NOTIFIER_NOT_FOUND=true # Set to 'false' if you want to keep Python installed even if the notifier is not found
+declare -r CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
+declare -r CONST_LOG_DIR="/var/log/run/"
+declare -r CONST_CRON_JOB_LOG_FILE="/var/log/cron.log"
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░              PREPARATIONS                ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+function abort {
+    echo "ERROR: $1"
+    echo "Aborting..."
     exit 1
-fi
+}
 
-NOTIFIER=""
-LOG_DIR="/var/log/run/"
+if [[ -z "$LOG_LEVEL" ]]; then abort "'LOG_LEVEL' not set"; fi
+if [[ -z "$CRON_SCHEDULE" ]]; then abort "'CRON_SCHEDULE' not set"; fi
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
-# ░░             LOGGING HELPER               ░░
+# ░░              GENERAL UTILS               ░░
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-function log {
-    local severity="$1"
-    local message="$2"
+function find_bin_script {
+    local script_name="$1"
+    local bin_paths=(
+        "/bin"
+        "/usr/bin"
+        "/usr/local/bin"
+        "$HOME/bin"
+    )
 
-    local log_level="$LOG_LEVEL"
-    local log_dir="$LOG_DIR"
-    local notifier="$NOTIFIER"
+    for bin_path in "${bin_paths[@]}"; do
+        local path="$bin_path/$script_name"
 
-    local simbashlog_action="log"
-    local severity_code
+        if [ -L "$path" ]; then
+            local original_path
+            original_path=$(readlink -f "$path")
 
-    # Set severity code
-    case "$severity" in
-    debug | 7)
-        severity_code=7
-        ;;
-    info | 6)
-        severity_code=6
-        ;;
-    notice | 5)
-        severity_code=5
-        ;;
-    warn | 4)
-        severity_code=4
-        ;;
-    error | 3)
-        severity_code=3
-        ;;
-    crit | 2)
-        severity_code=2
-        ;;
-    alert | 1)
-        severity_code=1
-        ;;
-    emerg | 0)
-        severity_code=0
-        ;;
-    *)
-        # Default to debug if severity is unknown
-        severity_code=7
-        echo "Unknown severity: $severity"
-        ;;
+            if [ -f "$original_path" ]; then
+                echo "$original_path"
+                return 0
+            fi
+        elif [ -f "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    echo "Error: '$script_name' not found in the specified bin paths (${bin_paths[*]// /, })." >&2
+    return 1
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                  LOGGING                   ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+declare -rx CONST_LOGGER_NAME="simbashlog"
+
+CONST_ORIGINAL_LOGGER_SCRIPT_PATH=$(find_bin_script "$CONST_LOGGER_NAME") ||
+    abort "Unable to resolve logger script '$CONST_LOGGER_NAME'"
+
+declare -rx CONST_ORIGINAL_LOGGER_SCRIPT_PATH
+
+# shellcheck source=/dev/null
+source "$CONST_ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
+    abort "Unable to source logger script '$CONST_ORIGINAL_LOGGER_SCRIPT_PATH'"
+
+# shellcheck disable=SC2034
+ENABLE_LOG_FILE=true
+# shellcheck disable=SC2034
+ENABLE_JSON_LOG_FILE=false
+# shellcheck disable=SC2034
+ENABLE_LOG_TO_SYSTEM=false
+# shellcheck disable=SC2034
+LOG_DIR="$CONST_LOG_DIR"
+# shellcheck disable=SC2034
+ENABLE_SIMPLE_LOG_DIR_STRUCTURE=true
+# shellcheck disable=SC2034
+ENABLE_COMBINED_LOG_FILES=false
+# shellcheck disable=SC2034
+LOG_LEVEL_FOR_SYSTEM_LOGGING=4
+# shellcheck disable=SC2034
+FACILITY_NAME_FOR_SYSTEM_LOGGING="user"
+# shellcheck disable=SC2034
+ENABLE_EXITING_SCRIPT_IF_AT_LEAST_ERROR_IS_LOGGED=true
+# shellcheck disable=SC2034
+ENABLE_DATE_IN_CONSOLE_OUTPUTS_FOR_LOGGING=true
+# shellcheck disable=SC2034
+SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="simple_without_file_extension"
+
+function log_debug_var {
+    local scope="$1"
+    log_debug "$scope -> $(print_var_with_current_value "$2")"
+}
+
+function log_delimiter {
+    local level="$1"
+    local text="$2"
+    local char="$3"
+    local use_uppercase="$4"
+    local number
+    local separator=""
+
+    case $level in
+    1) number=15 ;;
+    2) number=10 ;;
+    3) number=5 ;;
+    *) number=3 ;;
     esac
 
-    local simbashlog_command=("simbashlog" "--action" "$simbashlog_action" "--severity" "$severity_code" "--message" "$message" "--log-level" "$log_level" "--log-dir" "$log_dir")
+    for ((i = 0; i < number; i++)); do
+        separator+="$char"
+    done
 
-    # Add notifier if set
-    if [ -n "$notifier" ]; then
-        simbashlog_command+=("--notifier" "$notifier")
+    if is_true "$use_uppercase"; then
+        text=$(to_uppercase "$text")
     fi
 
-    # Execute simbashlog command
-    "${simbashlog_command[@]}" ||
-        {
-            echo "Failed to execute: simbashlog"
-            exit 1
-        }
+    log_info "$separator ${text} $separator"
+}
 
-    # Exit if severity is error or higher
-    if [[ "$severity_code" -le 3 ]]; then
-        exit 1
+function log_delimiter_start {
+    log_delimiter "$1" "$2" ">" false
+}
+
+function log_delimiter_end {
+    log_delimiter "$1" "$2" "<" false
+}
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                  LOGIC                   ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+function create_dir_if_not_exists {
+    local dir="$1"
+
+    log_debug_var "create_dir_if_not_exists" "dir"
+
+    if directory_not_exists "$dir"; then
+        log_info "Creating directory '$dir'..."
+
+        mkdir -p "$dir" ||
+            log_error "Failed to create directory '$dir'"
     fi
+}
+
+function uninstall_python {
+    log_delimiter_start 2 "UNINSTALL PYTHON"
+
+    apt-get remove --purge -y python3 python3-venv python3-pip
+    apt-get autoremove -y
+    apt-get clean
+
+    log_delimiter_end 2 "UNINSTALL PYTHON"
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║         SIMBASHLOG NOTIFIER SETUP          ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+SIMBASHLOG_NOTIFIER_FOR_CRON_JOB=""
+
+function set_simbashlog_notifier_for_cron_job {
+    local notifier="$1"
+
+    log_debug_var "set_simbashlog_notifier_for_cron_job" "notifier"
+
+    SIMBASHLOG_NOTIFIER_FOR_CRON_JOB="$notifier"
+}
+
+function setup_simbashlog_notifier {
+    local repo_url="$1"
+
+    log_delimiter_start 1 "SIMBASHLOG NOTIFIER SETUP"
+
+    log_debug_var "setup_simbashlog_notifier" "repo_url"
+
+    local config_dir="$CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR"
+
+    log_debug_var "setup_simbashlog_notifier" "config_dir"
+
+    if is_var_empty "$repo_url"; then
+        log_warn "Git repository URL for '$CONST_SIMBASHLOG_NAME' notifier not set. Therefore, no notifications will be sent."
+
+        if is_true "$CONST_UNINSTALL_PYTHON_IF_SIMBASHLOG_NOTIFIER_NOT_FOUND"; then uninstall_python; fi
+    else
+        create_dir_if_not_exists "$config_dir"
+
+        local python_packages_before_install
+        python_packages_before_install=$(pip freeze)
+
+        pip install --no-cache-dir "git+$repo_url" ||
+            log_error "Failed to install '$CONST_SIMBASHLOG_NAME' notifier from '$repo_url'"
+
+        local python_packages_after_install
+        python_packages_after_install=$(pip freeze)
+
+        local installed_python_packages
+        installed_python_packages=$(diff <(echo "$python_packages_before_install") <(echo "$python_packages_after_install") | grep '>' | cut -d' ' -f2)
+
+        echo "$installed_python_packages" | while read -r package; do
+            log_debug "Installed python package: $package"
+        done
+
+        local notifier
+        notifier=$(echo "$installed_python_packages" | grep -E '^simbashlog-.*-notifier(==.*)?$' | cut -d'=' -f1)
+
+        if is_var_not_empty "$notifier"; then
+            log_info "The following notifier was installed: '$notifier'"
+        else
+            log_warn "No valid '$CONST_SIMBASHLOG_NAME' notifier was found. A valid '$CONST_SIMBASHLOG_NAME' notifier should start with 'simbashlog-' and end with '-notifier'."
+
+            log_info "Reverting installation, uninstalling installed python packages..."
+            for package in $installed_python_packages; do
+                pip uninstall -y "$package" ||
+                    log_error "Failed to uninstall '$package'"
+
+                log_debug "Uninstalled python package: '$package'"
+            done
+
+            if is_true "$CONST_UNINSTALL_PYTHON_IF_SIMBASHLOG_NOTIFIER_NOT_FOUND"; then uninstall_python; fi
+        fi
+
+        set_simbashlog_notifier_for_cron_job "$notifier"
+
+        log_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
+    fi
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║               CRON JOB SETUP               ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+function setup_cron_job {
+    local script_name_without_extension="$1"
+    local cron_schedule="$2"
+    local cron_job_command="$3"
+
+    log_delimiter_start 1 "CRON JOB SETUP"
+
+    log_debug_var "setup_cron_job" "script_name_without_extension"
+    log_debug_var "setup_cron_job" "cron_schedule"
+    log_debug_var "setup_cron_job" "cron_job_command"
+
+    local cron_job_file="/etc/cron.d/${script_name_without_extension}_cron_task"
+    local cron_job_log_file="$CONST_CRON_JOB_LOG_FILE"
+    local cron_job="$cron_schedule SHELL=$SHELL PATH=$PATH /bin/bash $cron_job_command >> $cron_job_log_file 2>&1"
+
+    log_debug_var "setup_cron_job" "cron_job_file"
+    log_debug_var "setup_cron_job" "cron_job_log_file"
+    log_debug_var "setup_cron_job" "cron_job"
+    log_debug_var "setup_cron_job" "SHELL"
+    log_debug_var "setup_cron_job" "PATH"
+
+    log_info "Creating cron job file..."
+    echo "$cron_job" >"$cron_job_file" ||
+        log_error "Failed to create cron job file '$cron_job_file'"
+
+    log_info "Setting permissions for cron job file..."
+    chmod 0644 "$cron_job_file" ||
+        log_error "Failed to set permissions for cron job file '$cron_job_file'"
+
+    log_info "Creating cron job log file..."
+    touch "$cron_job_log_file" ||
+        log_error "Failed to create cron job log file '$cron_job_log_file'"
+
+    log_info "Setting permissions for cron job log file..."
+    chmod 0666 "$cron_job_log_file" ||
+        log_error "Failed to set permissions for cron job log file '$cron_job_log_file'"
+
+    log_info "Adding cron job..."
+    crontab "$cron_job_file" ||
+        log_error "Failed to add cron job"
+
+    log_info "Starting cron service..."
+    service cron start ||
+        log_error "Failed to start cron service"
+
+    log_notice "Cron job set up successfully"
+
+    log_delimiter_end 1 "CRON JOB SETUP"
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -90,142 +341,55 @@ function log {
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║            SIMBASHLOG NOTIFIER             ║
+# ║           ENVIRONMENT VARIABLES            ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-function uninstall_python {
-    log info "Uninstalling python..."
-    apt-get remove --purge -y python3 python3-venv python3-pip
-    apt-get autoremove -y
-    apt-get clean
-}
-
-NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
-
-log debug "Creating directory '$NOTIFIER_CONFIG_DIR'..."
-mkdir -p "$NOTIFIER_CONFIG_DIR" ||
-    log error "Failed to create directory '$NOTIFIER_CONFIG_DIR'"
-
-log debug "Checking if 'GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER' is set..."
-if [ -z "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ]; then
-    log warn "Git repository URL for 'simbashlog' notifier not set. Therefore, no notifications will be sent."
-
-    # TODO: Remove the following line if you still need python
-    uninstall_python
-else
-    PYTHON_PACKAGES_BEFORE_INSTALL=$(pip freeze)
-
-    pip install --no-cache-dir "git+$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ||
-        log error "Failed to install 'simbashlog' notifier from '$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER'"
-
-    PYTHON_PACKAGES_AFTER_INSTALL=$(pip freeze)
-
-    INSTALLED_PYTHON_PACKAGES=$(diff <(echo "$PYTHON_PACKAGES_BEFORE_INSTALL") <(echo "$PYTHON_PACKAGES_AFTER_INSTALL") | grep '>' | cut -d' ' -f2)
-
-    echo "$INSTALLED_PYTHON_PACKAGES" | while read -r package; do
-        log debug "Installed python package: $package"
-    done
-
-    NOTIFIER=$(echo "$INSTALLED_PYTHON_PACKAGES" | grep -E '^simbashlog-.*-notifier(==.*)?$' | cut -d'=' -f1)
-
-    if [ -n "$NOTIFIER" ]; then
-        log info "The following notifier was installed: $NOTIFIER"
-    else
-        log warn "No valid 'simbashlog' notifier was found. A valid simbashlog notifier should start with 'simbashlog-' and end with '-notifier'."
-
-        log info "Reverting installation, uninstalling installed python packages..."
-        for package in $INSTALLED_PYTHON_PACKAGES; do
-            pip uninstall -y "$package" ||
-                log error "Failed to uninstall $package"
-
-            log info "Uninstalled python package: $package"
-        done
-
-        # TODO: Remove the following line if you still need python
-        uninstall_python
-    fi
-fi
+log_debug_var "ENV" "LOG_LEVEL"
+log_debug_var "ENV" "CRON_SCHEDULE"
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║                   MAIN                     ║
+# ║          SIMBASHLOG NOTIFIER LOGIC         ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-# TODO: Adjust the current section to your needs, but the following variables are required: `SCRIPT_NAME_WITHOUT_EXTENSION`, `CRON_JOB_COMMAND`
+setup_simbashlog_notifier "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER"
 
-MAIN_BIN="/bin/main.bash"
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║           CRON JOB PREPARATIONS            ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
 
-SCRIPT_NAME_WITHOUT_EXTENSION="main"
+# TODO: Adjust the current section to your needs, but the following variables are required: 'MAIN_BIN', 'CRON_JOB_COMMAND'
 
-log debug "Checking if '$MAIN_BIN' is executable..."
-if [ ! -f "$MAIN_BIN" ]; then
-    log error "'$MAIN_BIN' not found"
-fi
+MAIN_BIN="/usr/bin/main.bash"
 
-if [ -n "$NOTIFIER" ]; then
-    CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\" \"$NOTIFIER\""
+if is_var_not_empty "$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB"; then
+    CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\" \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
 else
     CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\""
 fi
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║               CRON JOB SETUP               ║
+# ║               CRON JOB LOGIC               ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-log info "Setting up cron job..."
+if is_var_empty "$CRON_JOB_COMMAND"; then log_error "'CRON_JOB_COMMAND' not set"; fi
 
-log debug "Script name without extension: $SCRIPT_NAME_WITHOUT_EXTENSION"
-log debug "Cron job command: $CRON_JOB_COMMAND"
+SCRIPT_NAME_WITHOUT_EXTENSION=$(extract_basename_without_file_extensions_from_file "$MAIN_BIN")
+if is_var_empty "$SCRIPT_NAME_WITHOUT_EXTENSION"; then log_error "'SCRIPT_NAME_WITHOUT_EXTENSION' not set. Something went wrong."; fi
 
-if [ -z "$CRON_SCHEDULE" ]; then
-    log error "Cron schedule not set"
-fi
-log debug "Cron schedule: $CRON_SCHEDULE"
+if file_not_exists "$MAIN_BIN"; then log_error "Main script '$MAIN_BIN' not found"; fi
+if [[ ! -x "$MAIN_BIN" ]]; then log_error "Main script '$MAIN_BIN' is not executable"; fi
 
-CRON_JOB_FILE="/etc/cron.d/${SCRIPT_NAME_WITHOUT_EXTENSION}_cron_task"
-log debug "Cron job file: $CRON_JOB_FILE"
+setup_cron_job "$SCRIPT_NAME_WITHOUT_EXTENSION" "$CRON_SCHEDULE" "$CRON_JOB_COMMAND"
 
-CRON_JOB_LOG_FILE="/var/log/cron.log"
-log debug "Cron job log file: $CRON_JOB_LOG_FILE"
+log_notice "Started successfully"
 
-log debug "SHELL: $SHELL"
-log debug "PATH: $PATH"
-
-CRON_JOB="$CRON_SCHEDULE SHELL=$SHELL PATH=$PATH /bin/bash $CRON_JOB_COMMAND >> $CRON_JOB_LOG_FILE 2>&1"
-log debug "Cron job: $CRON_JOB"
-
-log debug "Creating cron job file..."
-echo "$CRON_JOB" >"$CRON_JOB_FILE" ||
-    log error "Failed to create cron job file '$CRON_JOB_FILE'"
-
-log debug "Setting permissions for cron job file..."
-chmod 0644 "$CRON_JOB_FILE" ||
-    log error "Failed to set permissions for cron job file '$CRON_JOB_FILE'"
-
-log debug "Creating cron job log file..."
-touch "$CRON_JOB_LOG_FILE" ||
-    log error "Failed to create cron job log file '$CRON_JOB_LOG_FILE'"
-
-log debug "Setting permissions for cron job log file..."
-chmod 0666 "$CRON_JOB_LOG_FILE" ||
-    log error "Failed to set permissions for cron job log file '$CRON_JOB_LOG_FILE'"
-
-log debug "Setting up cron job..."
-crontab "$CRON_JOB_FILE" ||
-    log error "Failed to set up cron job"
-
-log debug "Starting cron service..."
-service cron start ||
-    log error "Failed to start cron service"
-
-log info "Cron job set up successfully"
-
-log info "Started successfully"
-
-log debug "Tail the log file to keep the container running..."
-tail -f "$CRON_JOB_LOG_FILE" ||
-    log error "Failed to tail the log file '$CRON_JOB_LOG_FILE'"
+log_debug "Tail the log file to keep the container running..."
+tail -f "$CONST_CRON_JOB_LOG_FILE" ||
+    log error "Failed to tail the log file '$CONST_CRON_JOB_LOG_FILE'"

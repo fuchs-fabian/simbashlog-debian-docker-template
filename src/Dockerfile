@@ -17,6 +17,13 @@ RUN apt-get install -y \
 ENV SHELL /bin/bash
 ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+# ┌─────────────────────┬──────────────────────┐
+# │            REPO SCRIPT INSTALLER           │
+# └─────────────────────┴──────────────────────┘
+
+COPY repo_script_installer.bash /tmp/repo_script_installer.bash
+RUN chmod +x /tmp/repo_script_installer.bash
+
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
 # ║                 SIMBASHLOG                 ║
@@ -33,10 +40,7 @@ RUN apt-get install -y \
     procps \
     jq
 
-COPY install_simbashlog.sh /bin/install_simbashlog.sh
-RUN chmod +x /bin/install_simbashlog.sh
-RUN /bin/install_simbashlog.sh
-RUN rm /bin/install_simbashlog.sh
+RUN /tmp/repo_script_installer.bash "https://github.com/fuchs-fabian/simbashlog.git" "v1.1.3"
 
 # ┌─────────────────────┬──────────────────────┐
 # │ SETUP ENVIRONMENT FOR SIMBASHLOG NOTIFIERS │
@@ -67,8 +71,8 @@ RUN mkdir -p /root/.config/simbashlog-notifier
 
 RUN echo "Installing 'main'..."
 
-COPY main.bash /bin/main.bash
-RUN chmod +x /bin/main.bash
+COPY main.bash /usr/bin/main.bash
+RUN chmod +x /usr/bin/main.bash
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
@@ -90,7 +94,7 @@ RUN apt-get clean && \
 
 RUN echo "Setup run script..."
 
-COPY run.bash /bin/run.bash
-RUN chmod +x /bin/run.bash
+COPY run.bash /usr/bin/run.bash
+RUN chmod +x /usr/bin/run.bash
 
-CMD ["/bin/run.bash"]
+CMD ["/usr/bin/run.bash"]

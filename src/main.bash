@@ -1,91 +1,147 @@
 #!/usr/bin/env bash
 
-if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-    echo "Invalid number of arguments. Usage: $0 <log_level> [<notifier>]"
-    exit 1
-fi
-
-LOG_LEVEL="$1"
-NOTIFIER="${2:-}"
-
-if [ -z "$LOG_LEVEL" ]; then
-    echo "Log level not set"
-    exit 1
-fi
-
-LOG_DIR="/var/log/main/"
+# DISCLAIMER:
+# Not POSIX conform!
+#
+#
+# DESCRIPTION:
+# TODO: Add a description
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
-# ░░             LOGGING HELPER               ░░
+# ░░                LICENSES                  ░░
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-function log {
-    local severity="$1"
-    local message="$2"
+# simbashlog:
+# https://github.com/fuchs-fabian/simbashlog/blob/main/LICENSE
+#
+#
+# simbashlog-debian-docker-template:
+# https://github.com/fuchs-fabian/simbashlog-debian-docker-template/blob/main/LICENSE
 
-    local log_level="$LOG_LEVEL"
-    local log_dir="$LOG_DIR"
-    local notifier="$NOTIFIER"
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                CONSTANTS                 ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-    local simbashlog_action="log"
-    local severity_code
+declare -r CONST_LOG_DIR="/var/log/main/"
 
-    # Set severity code
-    case "$severity" in
-    debug | 7)
-        severity_code=7
-        ;;
-    info | 6)
-        severity_code=6
-        ;;
-    notice | 5)
-        severity_code=5
-        ;;
-    warn | 4)
-        severity_code=4
-        ;;
-    error | 3)
-        severity_code=3
-        ;;
-    crit | 2)
-        severity_code=2
-        ;;
-    alert | 1)
-        severity_code=1
-        ;;
-    emerg | 0)
-        severity_code=0
-        ;;
-    *)
-        # Default to debug if severity is unknown
-        severity_code=7
-        echo "Unknown severity: $severity"
-        ;;
-    esac
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░              PREPARATIONS                ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-    local simbashlog_command=("simbashlog" "--action" "$simbashlog_action" "--severity" "$severity_code" "--message" "$message" "--log-level" "$log_level" "--log-dir" "$log_dir")
-
-    # Add notifier if set
-    if [ -n "$notifier" ]; then
-        simbashlog_command+=("--notifier" "$notifier")
-    fi
-
-    # Execute simbashlog command
-    "${simbashlog_command[@]}" ||
-        {
-            echo "Failed to execute: simbashlog"
-            exit 1
-        }
-
-    # Exit if severity is error or higher
-    if [[ "$severity_code" -le 3 ]]; then
-        exit 1
-    fi
+function abort {
+    echo "ERROR: $1"
+    echo "Aborting..."
+    exit 1
 }
+
+# TODO: Add more preparations if needed
+
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    abort "Invalid number of arguments. Usage: $0 <log_level> [<notifier>]"
+fi
+
+# shellcheck disable=SC2034
+LOG_LEVEL="$1"
+# shellcheck disable=SC2034
+SIMBASHLOG_NOTIFIER="${2:-}"
+
+if [[ -z "$LOG_LEVEL" ]]; then abort "Log level not set"; fi
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░              GENERAL UTILS               ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+function find_bin_script {
+    local script_name="$1"
+    local bin_paths=(
+        "/bin"
+        "/usr/bin"
+        "/usr/local/bin"
+        "$HOME/bin"
+    )
+
+    for bin_path in "${bin_paths[@]}"; do
+        local path="$bin_path/$script_name"
+
+        if [ -L "$path" ]; then
+            local original_path
+            original_path=$(readlink -f "$path")
+
+            if [ -f "$original_path" ]; then
+                echo "$original_path"
+                return 0
+            fi
+        elif [ -f "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    echo "Error: '$script_name' not found in the specified bin paths (${bin_paths[*]// /, })." >&2
+    return 1
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                  LOGGING                   ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+# MORE INFO: https://github.com/fuchs-fabian/simbashlog/wiki#use-simbashlog
+
+declare -rx CONST_LOGGER_NAME="simbashlog"
+
+CONST_ORIGINAL_LOGGER_SCRIPT_PATH=$(find_bin_script "$CONST_LOGGER_NAME") ||
+    abort "Unable to resolve logger script '$CONST_LOGGER_NAME'"
+
+declare -rx CONST_ORIGINAL_LOGGER_SCRIPT_PATH
+
+# shellcheck source=/dev/null
+source "$CONST_ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
+    abort "Unable to source logger script '$CONST_ORIGINAL_LOGGER_SCRIPT_PATH'"
+
+# TODO: Adjust the following log settings or add more if needed
+
+# MORE INFO: https://github.com/fuchs-fabian/simbashlog?tab=readme-ov-file#-before-and-after-sourcing
+
+# shellcheck disable=SC2034
+ENABLE_LOG_FILE=true
+# shellcheck disable=SC2034
+ENABLE_JSON_LOG_FILE=false
+# shellcheck disable=SC2034
+ENABLE_LOG_TO_SYSTEM=false
+# shellcheck disable=SC2034
+LOG_DIR="$CONST_LOG_DIR"
+# shellcheck disable=SC2034
+ENABLE_SIMPLE_LOG_DIR_STRUCTURE=true
+# shellcheck disable=SC2034
+ENABLE_COMBINED_LOG_FILES=false
+# shellcheck disable=SC2034
+LOG_LEVEL_FOR_SYSTEM_LOGGING=4
+# shellcheck disable=SC2034
+FACILITY_NAME_FOR_SYSTEM_LOGGING="user"
+# shellcheck disable=SC2034
+ENABLE_EXITING_SCRIPT_IF_AT_LEAST_ERROR_IS_LOGGED=true
+# shellcheck disable=SC2034
+ENABLE_DATE_IN_CONSOLE_OUTPUTS_FOR_LOGGING=true
+# shellcheck disable=SC2034
+SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="simple_without_file_extension"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -97,26 +153,11 @@ function log {
 
 # TODO: Add your code here and delete the following example code
 
-log debug "This is a debug message"
-log 7 "This is also a debug message"
-
-log info "This is an info message"
-log 6 "This is also an info message"
-
-log notice "This is a notice message"
-log 5 "This is also a notice message"
-
-log warn "This is a warning message"
-log 4 "This is also a warning message"
-
-log error "This is an error message"
-log 3 "This is also an error message"
-
-log crit "This is a critical message"
-log 2 "This is also a critical message"
-
-log alert "This is an alert message"
-log 1 "This is also an alert message"
-
-log emerg "This is an emergency message"
-log 0 "This is also an emergency message"
+log_debug "This is a debug message"
+log_info "This is an info message"
+log_notice "This is a notice message"
+log_warn "This is a warning message"
+log_error "This is an error message"
+log_crit "This is a critical message"
+log_alert "This is an alert message"
+log_emerg "This is an emergency message"
