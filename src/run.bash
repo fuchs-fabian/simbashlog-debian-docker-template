@@ -32,7 +32,7 @@
 
 declare -r CONST_UNINSTALL_PYTHON_IF_SIMBASHLOG_NOTIFIER_NOT_FOUND=true # Set to 'false' if you want to keep Python installed even if the notifier is not found
 declare -r CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
-declare -r CONST_LOG_DIR="/var/log/run/"
+declare -r CONST_LOG_DIR="/var/log/"
 declare -r CONST_CRON_JOB_LOG_FILE="/var/log/cron.log"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -254,7 +254,7 @@ function setup_simbashlog_notifier {
         notifier=$(echo "$installed_python_packages" | grep -E '^simbashlog-.*-notifier(==.*)?$' | cut -d'=' -f1)
 
         if is_var_not_empty "$notifier"; then
-            log_info "The following notifier was installed: '$notifier'"
+            log_notice "The following notifier was installed: '$notifier'"
         else
             log_warn "No valid '$CONST_SIMBASHLOG_NAME' notifier was found. A valid '$CONST_SIMBASHLOG_NAME' notifier should start with 'simbashlog-' and end with '-notifier'."
 

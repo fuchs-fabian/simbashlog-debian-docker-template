@@ -30,7 +30,7 @@
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-declare -r CONST_LOG_DIR="/var/log/main/"
+declare -r CONST_LOG_DIR="/var/log/"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -143,6 +143,11 @@ ENABLE_DATE_IN_CONSOLE_OUTPUTS_FOR_LOGGING=true
 # shellcheck disable=SC2034
 SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="simple_without_file_extension"
 
+function log_debug_var {
+    local scope="$1"
+    log_debug "$scope -> $(print_var_with_current_value "$2")"
+}
+
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
@@ -150,6 +155,8 @@ SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="simple_without_file_ext
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+log_debug_var "VAR" "LOG_LEVEL"
 
 # TODO: Add your code here and delete the following example code
 
