@@ -396,23 +396,27 @@ function setup_cron_job {
     local cron_schedule="$2"
     local cron_job_command="$3"
 
-    log_debug_delimiter_start 1 "CRON JOB SETUP"
-
     log_debug_var "setup_cron_job" "script_name_without_extension"
     log_debug_var "setup_cron_job" "cron_schedule"
     log_debug_var "setup_cron_job" "cron_job_command"
 
-    local cron_job_file="/etc/cron.d/${script_name_without_extension}_cron_task"
     local cron_job_log_file="$CONST_CRON_JOB_LOG_FILE"
+    local cron_job_file="/etc/cron.d/${script_name_without_extension}_cron_task"
     local cron_job="$cron_schedule SHELL=$SHELL PATH=$PATH /bin/bash $cron_job_command >> $cron_job_log_file 2>&1"
 
-    log_debug_var "setup_cron_job" "cron_job_file"
     log_debug_var "setup_cron_job" "cron_job_log_file"
+    log_debug_var "setup_cron_job" "cron_job_file"
     log_debug_var "setup_cron_job" "cron_job"
     log_debug_var "setup_cron_job" "SHELL"
     log_debug_var "setup_cron_job" "PATH"
 
-    create_dir_if_not_exists "$(dirname "$cron_job_log_file")"
+    local cron_job_log_dir
+    cron_job_log_dir=$(dirname "$cron_job_log_file")
+
+    log_debug_var "setup_cron_job" "cron_job_log_dir"
+
+    create_dir_if_not_exists "$cron_job_log_dir" ||
+        log_error "Failed to create directory '$cron_job_log_dir'"
 
     log_info "Creating cron job file..."
     echo "$cron_job" >"$cron_job_file" ||
@@ -439,8 +443,6 @@ function setup_cron_job {
         log_error "Failed to start cron service"
 
     log_notice "Cron job set up successfully"
-
-    log_debug_delimiter_end 1 "CRON JOB SETUP"
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -467,13 +469,11 @@ log_debug_var "ENV" "CRON_SCHEDULE"
 # ╚═════════════════════╩══════════════════════╝
 
 log_debug_delimiter_start 1 "SIMBASHLOG NOTIFIER SETUP"
-
 setup_simbashlog_notifier "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ||
     {
         log_warn "No notifications will be sent because the '$CONST_SIMBASHLOG_NAME' notifier setup failed"
         set_simbashlog_notifier_for_cron_job ""
     }
-
 log_debug_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
 
 # ╔═════════════════════╦══════════════════════╗
@@ -506,7 +506,9 @@ if is_var_empty "$SCRIPT_NAME_WITHOUT_EXTENSION"; then log_error "'SCRIPT_NAME_W
 if file_not_exists "$MAIN_BIN"; then log_error "Main script '$MAIN_BIN' not found"; fi
 if [[ ! -x "$MAIN_BIN" ]]; then log_error "Main script '$MAIN_BIN' is not executable"; fi
 
+log_debug_delimiter_start 1 "CRON JOB SETUP"
 setup_cron_job "$SCRIPT_NAME_WITHOUT_EXTENSION" "$CRON_SCHEDULE" "$CRON_JOB_COMMAND"
+log_debug_delimiter_end 1 "CRON JOB SETUP"
 
 log_notice "Started successfully"
 
