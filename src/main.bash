@@ -25,16 +25,6 @@
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
-# ░░                CONSTANTS                 ░░
-# ░░                                          ░░
-# ░░                                          ░░
-# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
-
-declare -r CONST_LOG_DIR="/var/log/"
-
-# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
-# ░░                                          ░░
-# ░░                                          ░░
 # ░░              PREPARATIONS                ░░
 # ░░                                          ░░
 # ░░                                          ░░
@@ -48,16 +38,19 @@ function abort {
 
 # TODO: Add more preparations if needed
 
-if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-    abort "Invalid number of arguments. Usage: $0 <log_level> [<notifier>]"
+if [ $# -lt 2 ] || [ $# -gt 3 ]; then
+    abort "Invalid number of arguments. Usage: $0 <log_level> <log_dir> [<notifier>]"
 fi
 
 # shellcheck disable=SC2034
 LOG_LEVEL="$1"
 # shellcheck disable=SC2034
-SIMBASHLOG_NOTIFIER="${2:-}"
+LOG_DIR="$2"
+# shellcheck disable=SC2034
+SIMBASHLOG_NOTIFIER="${3:-}"
 
 if [[ -z "$LOG_LEVEL" ]]; then abort "Log level not set"; fi
+if [[ -z "$LOG_DIR" ]]; then abort "Log directory not set"; fi
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -126,8 +119,6 @@ ENABLE_LOG_FILE=true
 ENABLE_JSON_LOG_FILE=false
 # shellcheck disable=SC2034
 ENABLE_LOG_TO_SYSTEM=false
-# shellcheck disable=SC2034
-LOG_DIR="$CONST_LOG_DIR"
 # shellcheck disable=SC2034
 ENABLE_SIMPLE_LOG_DIR_STRUCTURE=true
 # shellcheck disable=SC2034

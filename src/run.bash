@@ -33,7 +33,7 @@
 declare -r CONST_UNINSTALL_PYTHON_IF_SIMBASHLOG_NOTIFIER_NOT_FOUND=true # Set to 'false' if you want to keep Python installed even if the notifier is not found
 declare -r CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
 declare -r CONST_LOG_DIR="/var/log/"
-declare -r CONST_CRON_JOB_LOG_FILE="/var/log/cron.log"
+declare -r CONST_CRON_JOB_LOG_FILE="${CONST_LOG_DIR}cron/cron.log"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -302,6 +302,8 @@ function setup_cron_job {
     log_debug_var "setup_cron_job" "SHELL"
     log_debug_var "setup_cron_job" "PATH"
 
+    create_dir_if_not_exists "$(dirname "$cron_job_log_file")"
+
     log_info "Creating cron job file..."
     echo "$cron_job" >"$cron_job_file" ||
         log_error "Failed to create cron job file '$cron_job_file'"
@@ -367,9 +369,9 @@ setup_simbashlog_notifier "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER"
 MAIN_BIN="/usr/bin/main.bash"
 
 if is_var_not_empty "$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB"; then
-    CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\" \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
+    CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\" \"$CONST_LOG_DIR\" \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
 else
-    CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\""
+    CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\" \"$CONST_LOG_DIR\""
 fi
 
 # ╔═════════════════════╦══════════════════════╗
