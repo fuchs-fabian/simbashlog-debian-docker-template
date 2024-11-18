@@ -198,6 +198,8 @@ function create_dir_if_not_exists {
                 log_warn "Failed to create directory '$dir'"
                 return 1
             }
+    else
+        log_debug "Directory '$dir' already exists"
     fi
     return 0
 }
@@ -215,6 +217,8 @@ function install_python {
         log_error "Failed to update package lists"
 
     for package in "${CONST_SYSTEM_PYTHON_PACKAGES[@]}"; do
+        log_debug_var "install_python" "package"
+
         apt-get install -y "$package" ||
             log_error "Failed to install Python! The following package could not be installed: '$package'"
     done
@@ -244,6 +248,8 @@ function uninstall_python {
     log_info "Uninstalling Python..."
 
     for package in "${CONST_SYSTEM_PYTHON_PACKAGES[@]}"; do
+        log_debug_var "install_python" "package"
+
         apt-get remove --purge -y "$package" ||
             log_error "Failed to uninstall Python! The following package could not be uninstalled: '$package'"
     done
