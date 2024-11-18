@@ -31,7 +31,11 @@
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 declare -r CONST_IS_PYTHON_PREINSTALLED=false # If Python is preinstalled, set to 'true', but be careful that Python is correctly installed
-declare -r CONST_SYSTEM_PYTHON_PACKAGES="python3 python3-venv python3-pip"
+declare -r CONST_SYSTEM_PYTHON_PACKAGES=(
+    "python3"
+    "python3-venv"
+    "python3-pip"
+)
 declare -r CONST_VENV_DIR="/opt/venv"
 
 declare -r CONST_LOG_DIR="/var/log/"

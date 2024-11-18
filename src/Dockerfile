@@ -44,7 +44,7 @@ RUN /tmp/repo_script_installer.bash "https://github.com/fuchs-fabian/simbashlog.
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-RUN echo "Installing 'main'..."
+RUN echo "Adding main script..."
 
 COPY main.bash /usr/bin/main.bash
 RUN chmod +x /usr/bin/main.bash
