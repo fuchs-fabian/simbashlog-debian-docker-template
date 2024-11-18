@@ -30,10 +30,6 @@ RUN chmod +x /tmp/repo_script_installer.bash
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-# ┌─────────────────────┬──────────────────────┐
-# │         INSTALL SIMBASHLOG (CORE)          │
-# └─────────────────────┴──────────────────────┘
-
 RUN echo "Installing 'simbashlog' core..."
 
 RUN apt-get install -y \
@@ -41,27 +37,6 @@ RUN apt-get install -y \
     jq
 
 RUN /tmp/repo_script_installer.bash "https://github.com/fuchs-fabian/simbashlog.git" "v1.1.3"
-
-# ┌─────────────────────┬──────────────────────┐
-# │ SETUP ENVIRONMENT FOR SIMBASHLOG NOTIFIERS │
-# └─────────────────────┴──────────────────────┘
-
-RUN echo "Setting up python environment for 'simbashlog' notifiers..."
-
-# Install python3
-RUN apt-get install -y \
-    python3 \
-    python3-venv \
-    python3-pip
-
-# Create venv
-RUN python3 -m venv /opt/venv
-
-# Add venv to PATH
-ENV PATH /opt/venv/bin:$PATH
-
-# Create simbashlog-notifier config directory due to volume mount
-RUN mkdir -p /root/.config/simbashlog-notifier
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║

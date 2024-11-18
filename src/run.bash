@@ -30,10 +30,14 @@
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-declare -r CONST_UNINSTALL_PYTHON_IF_SIMBASHLOG_NOTIFIER_NOT_FOUND=true # Set to 'false' if you want to keep Python installed even if the notifier is not found
-declare -r CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
+declare -r CONST_IS_PYTHON_PREINSTALLED=false # If Python is preinstalled, set to 'true', but be careful that Python is correctly installed
+declare -r CONST_SYSTEM_PYTHON_PACKAGES="python3 python3-venv python3-pip"
+declare -r CONST_VENV_DIR="/opt/venv"
+
 declare -r CONST_LOG_DIR="/var/log/"
 declare -r CONST_CRON_JOB_LOG_FILE="${CONST_LOG_DIR}cron/cron.log"
+
+declare -r CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -135,7 +139,7 @@ function log_debug_var {
     log_debug "$scope -> $(print_var_with_current_value "$2")"
 }
 
-function log_delimiter {
+function log_debug_delimiter {
     local level="$1"
     local text="$2"
     local char="$3"
@@ -158,15 +162,15 @@ function log_delimiter {
         text=$(to_uppercase "$text")
     fi
 
-    log_info "$separator ${text} $separator"
+    log_debug "$separator ${text} $separator"
 }
 
-function log_delimiter_start {
-    log_delimiter "$1" "$2" ">" false
+function log_debug_delimiter_start {
+    log_debug_delimiter "$1" "$2" ">" false
 }
 
-function log_delimiter_end {
-    log_delimiter "$1" "$2" "<" false
+function log_debug_delimiter_end {
+    log_debug_delimiter "$1" "$2" "<" false
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -186,18 +190,69 @@ function create_dir_if_not_exists {
         log_info "Creating directory '$dir'..."
 
         mkdir -p "$dir" ||
-            log_error "Failed to create directory '$dir'"
+            {
+                log_warn "Failed to create directory '$dir'"
+                return 1
+            }
     fi
+    return 0
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                  PYTHON                    ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+function install_python {
+    log_info "Installing Python..."
+
+    apt-get update ||
+        log_error "Failed to update package lists"
+
+    for package in "${CONST_SYSTEM_PYTHON_PACKAGES[@]}"; do
+        apt-get install -y "$package" ||
+            log_error "Failed to install Python! The following package could not be installed: '$package'"
+    done
+
+    local venv_dir="$CONST_VENV_DIR"
+
+    log_debug_var "install_python" "venv_dir"
+
+    python3 -m venv $venv_dir ||
+        {
+            log_warn "Failed to create Python virtual environment in '$venv_dir'"
+            return 1
+        }
+
+    export PATH="$venv_dir/bin:$PATH" ||
+        {
+            log_warn "Failed to set 'PATH' to include the Python virtual environment in '$venv_dir'"
+            return 1
+        }
+
+    log_info "Python installed successfully"
+
+    return 0
 }
 
 function uninstall_python {
-    log_delimiter_start 2 "UNINSTALL PYTHON"
+    log_info "Uninstalling Python..."
 
-    apt-get remove --purge -y python3 python3-venv python3-pip
-    apt-get autoremove -y
-    apt-get clean
+    for package in "${CONST_SYSTEM_PYTHON_PACKAGES[@]}"; do
+        apt-get remove --purge -y "$package" ||
+            log_error "Failed to uninstall Python! The following package could not be uninstalled: '$package'"
+    done
 
-    log_delimiter_end 2 "UNINSTALL PYTHON"
+    apt-get autoremove -y ||
+        log_error "Failed to autoremove"
+
+    apt-get clean -y ||
+        log_error "Failed to clean"
+
+    log_info "Python uninstalled successfully"
+
+    return 0
 }
 
 # ╔═════════════════════╦══════════════════════╗
@@ -216,63 +271,118 @@ function set_simbashlog_notifier_for_cron_job {
     SIMBASHLOG_NOTIFIER_FOR_CRON_JOB="$notifier"
 }
 
+function install_python_simbashlog_notifier {
+    local repo_url="$1"
+
+    log_debug_var "install_python_simbashlog_notifier" "repo_url"
+
+    log_info "Installing Python '$CONST_SIMBASHLOG_NAME' notifier from '$repo_url' with pip..."
+
+    local python_packages_before_install
+    python_packages_before_install=$(pip freeze)
+
+    pip install --no-cache-dir "git+$repo_url" ||
+        {
+            log_warn "Failed to install Python '$CONST_SIMBASHLOG_NAME' notifier from '$repo_url' with pip"
+            return 1
+        }
+
+    local python_packages_after_install
+    python_packages_after_install=$(pip freeze)
+
+    local installed_python_packages
+    installed_python_packages=$(diff <(echo "$python_packages_before_install") <(echo "$python_packages_after_install") | grep '>' | cut -d' ' -f2)
+
+    echo "$installed_python_packages" | while read -r package; do
+        log_debug "Installed Python package: '$package'"
+    done
+
+    local notifier
+    notifier=$(echo "$installed_python_packages" | grep -E '^simbashlog-.*-notifier(==.*)?$' | cut -d'=' -f1)
+
+    log_debug_var "install_python_simbashlog_notifier" "notifier"
+
+    if is_var_not_empty "$notifier"; then
+        log_notice "The following notifier was installed: '$notifier'"
+        set_simbashlog_notifier_for_cron_job "$notifier"
+    else
+        log_warn "No valid Python '$CONST_SIMBASHLOG_NAME' notifier was found. A valid Python '$CONST_SIMBASHLOG_NAME' notifier should start with 'simbashlog-' and end with '-notifier'!"
+
+        log_info "Uninstalling installed Python packages..."
+        for package in $installed_python_packages; do
+            pip uninstall -y "$package" ||
+                log_error "Failed to uninstall Python package '$package'"
+
+            log_debug "Uninstalled Python package: '$package'"
+        done
+
+        return 1
+    fi
+
+    log_info "Python '$CONST_SIMBASHLOG_NAME' notifier installed successfully"
+
+    return 0
+}
+
+function setup_python_simbashlog_notifier {
+    local repo_url="$1"
+
+    log_debug_var "setup_python_simbashlog_notifier" "repo_url"
+
+    log_info "Setting up Python '$CONST_SIMBASHLOG_NAME' notifier..."
+
+    local is_python_preinstalled="$CONST_IS_PYTHON_PREINSTALLED"
+
+    log_debug_var "setup_python_simbashlog_notifier" "is_python_preinstalled"
+
+    if is_false "$is_python_preinstalled"; then
+        install_python ||
+            {
+                log_warn "Failed to install Python"
+                return 1
+            }
+    fi
+
+    install_python_simbashlog_notifier "$repo_url" ||
+        {
+            log_warn "Failed to install Python '$CONST_SIMBASHLOG_NAME' notifier"
+            if is_false "$is_python_preinstalled"; then uninstall_python; fi
+            return 1
+        }
+
+    log_info "Python '$CONST_SIMBASHLOG_NAME' notifier set up successfully"
+
+    return 0
+}
+
 function setup_simbashlog_notifier {
     local repo_url="$1"
 
-    log_delimiter_start 1 "SIMBASHLOG NOTIFIER SETUP"
-
     log_debug_var "setup_simbashlog_notifier" "repo_url"
+
+    log_info "Setting up '$CONST_SIMBASHLOG_NAME' notifier..."
 
     local config_dir="$CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR"
 
     log_debug_var "setup_simbashlog_notifier" "config_dir"
 
+    create_dir_if_not_exists "$config_dir" ||
+        log_error "Failed to create directory '$config_dir'". This is required due to volume mounting!
+
     if is_var_empty "$repo_url"; then
-        log_warn "Git repository URL for '$CONST_SIMBASHLOG_NAME' notifier not set. Therefore, no notifications will be sent."
-
-        if is_true "$CONST_UNINSTALL_PYTHON_IF_SIMBASHLOG_NOTIFIER_NOT_FOUND"; then uninstall_python; fi
+        log_notice "No notifications will be sent because the repository URL for the '$CONST_SIMBASHLOG_NAME' notifier is not set"
+        log_notice "No '$CONST_SIMBASHLOG_NAME' notifier will be installed"
     else
-        create_dir_if_not_exists "$config_dir"
-
-        local python_packages_before_install
-        python_packages_before_install=$(pip freeze)
-
-        pip install --no-cache-dir "git+$repo_url" ||
-            log_error "Failed to install '$CONST_SIMBASHLOG_NAME' notifier from '$repo_url'"
-
-        local python_packages_after_install
-        python_packages_after_install=$(pip freeze)
-
-        local installed_python_packages
-        installed_python_packages=$(diff <(echo "$python_packages_before_install") <(echo "$python_packages_after_install") | grep '>' | cut -d' ' -f2)
-
-        echo "$installed_python_packages" | while read -r package; do
-            log_debug "Installed python package: $package"
-        done
-
-        local notifier
-        notifier=$(echo "$installed_python_packages" | grep -E '^simbashlog-.*-notifier(==.*)?$' | cut -d'=' -f1)
-
-        if is_var_not_empty "$notifier"; then
-            log_notice "The following notifier was installed: '$notifier'"
-        else
-            log_warn "No valid '$CONST_SIMBASHLOG_NAME' notifier was found. A valid '$CONST_SIMBASHLOG_NAME' notifier should start with 'simbashlog-' and end with '-notifier'."
-
-            log_info "Reverting installation, uninstalling installed python packages..."
-            for package in $installed_python_packages; do
-                pip uninstall -y "$package" ||
-                    log_error "Failed to uninstall '$package'"
-
-                log_debug "Uninstalled python package: '$package'"
-            done
-
-            if is_true "$CONST_UNINSTALL_PYTHON_IF_SIMBASHLOG_NOTIFIER_NOT_FOUND"; then uninstall_python; fi
-        fi
-
-        set_simbashlog_notifier_for_cron_job "$notifier"
-
-        log_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
+        setup_python_simbashlog_notifier "$repo_url" ||
+            {
+                log_warn "Failed set up Python '$CONST_SIMBASHLOG_NAME' notifier"
+                return 1
+            }
     fi
+
+    log_info "'$CONST_SIMBASHLOG_NAME' notifier set up successfully"
+
+    return 0
 }
 
 # ╔═════════════════════╦══════════════════════╗
@@ -286,7 +396,7 @@ function setup_cron_job {
     local cron_schedule="$2"
     local cron_job_command="$3"
 
-    log_delimiter_start 1 "CRON JOB SETUP"
+    log_debug_delimiter_start 1 "CRON JOB SETUP"
 
     log_debug_var "setup_cron_job" "script_name_without_extension"
     log_debug_var "setup_cron_job" "cron_schedule"
@@ -330,7 +440,7 @@ function setup_cron_job {
 
     log_notice "Cron job set up successfully"
 
-    log_delimiter_end 1 "CRON JOB SETUP"
+    log_debug_delimiter_end 1 "CRON JOB SETUP"
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -356,7 +466,15 @@ log_debug_var "ENV" "CRON_SCHEDULE"
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-setup_simbashlog_notifier "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER"
+log_debug_delimiter_start 1 "SIMBASHLOG NOTIFIER SETUP"
+
+setup_simbashlog_notifier "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ||
+    {
+        log_warn "No notifications will be sent because the '$CONST_SIMBASHLOG_NAME' notifier setup failed"
+        set_simbashlog_notifier_for_cron_job ""
+    }
+
+log_debug_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
