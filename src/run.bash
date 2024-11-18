@@ -132,11 +132,17 @@ LOG_LEVEL_FOR_SYSTEM_LOGGING=4
 # shellcheck disable=SC2034
 FACILITY_NAME_FOR_SYSTEM_LOGGING="user"
 # shellcheck disable=SC2034
-ENABLE_EXITING_SCRIPT_IF_AT_LEAST_ERROR_IS_LOGGED=true
+ENABLE_EXITING_SCRIPT_IF_AT_LEAST_ERROR_IS_LOGGED=false # This must not be 'true' in this script, otherwise the container will not stop if an error occurs
 # shellcheck disable=SC2034
 ENABLE_DATE_IN_CONSOLE_OUTPUTS_FOR_LOGGING=true
 # shellcheck disable=SC2034
 SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="simple_without_file_extension"
+
+function log_and_abort {
+    log_alert "$1"
+    log_notice "Container will stop now!"
+    exit 1
+}
 
 function log_debug_var {
     local scope="$1"
@@ -214,13 +220,13 @@ function install_python {
     log_info "Installing Python..."
 
     apt-get update ||
-        log_error "Failed to update package lists"
+        log_and_abort "Failed to update package lists"
 
     for package in "${CONST_SYSTEM_PYTHON_PACKAGES[@]}"; do
         log_debug_var "install_python" "package"
 
         apt-get install -y "$package" ||
-            log_error "Failed to install Python! The following package could not be installed: '$package'"
+            log_and_abort "Failed to install Python! The following package could not be installed: '$package'"
     done
 
     local venv_dir="$CONST_VENV_DIR"
@@ -251,14 +257,14 @@ function uninstall_python {
         log_debug_var "install_python" "package"
 
         apt-get remove --purge -y "$package" ||
-            log_error "Failed to uninstall Python! The following package could not be uninstalled: '$package'"
+            log_and_abort "Failed to uninstall Python! The following package could not be uninstalled: '$package'"
     done
 
     apt-get autoremove -y ||
-        log_error "Failed to autoremove"
+        log_and_abort "Failed to autoremove"
 
     apt-get clean -y ||
-        log_error "Failed to clean"
+        log_and_abort "Failed to clean"
 
     log_info "Python uninstalled successfully"
 
@@ -321,7 +327,7 @@ function install_python_simbashlog_notifier {
         log_info "Uninstalling installed Python packages..."
         for package in $installed_python_packages; do
             pip uninstall -y "$package" ||
-                log_error "Failed to uninstall Python package '$package'"
+                log_and_abort "Failed to uninstall Python package '$package'"
 
             log_debug "Uninstalled Python package: '$package'"
         done
@@ -377,7 +383,7 @@ function setup_simbashlog_notifier {
     log_debug_var "setup_simbashlog_notifier" "config_dir"
 
     create_dir_if_not_exists "$config_dir" ||
-        log_error "Failed to create directory '$config_dir'". This is required due to volume mounting!
+        log_and_abort "Failed to create directory '$config_dir'". This is required due to volume mounting!
 
     if is_var_empty "$repo_url"; then
         log_notice "No notifications will be sent because the repository URL for the '$CONST_SIMBASHLOG_NAME' notifier is not set"
@@ -474,6 +480,8 @@ function setup_cron_job {
         }
 
     log_notice "Cron job set up successfully"
+
+    return 0
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -529,21 +537,21 @@ fi
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-if is_var_empty "$CRON_JOB_COMMAND"; then log_error "'CRON_JOB_COMMAND' not set"; fi
+if is_var_empty "$CRON_JOB_COMMAND"; then log_and_abort "'CRON_JOB_COMMAND' not set"; fi
 
 SCRIPT_NAME_WITHOUT_EXTENSION=$(extract_basename_without_file_extensions_from_file "$MAIN_BIN")
-if is_var_empty "$SCRIPT_NAME_WITHOUT_EXTENSION"; then log_error "'SCRIPT_NAME_WITHOUT_EXTENSION' not set. Something went wrong."; fi
+if is_var_empty "$SCRIPT_NAME_WITHOUT_EXTENSION"; then log_and_abort "'SCRIPT_NAME_WITHOUT_EXTENSION' not set. Something went wrong."; fi
 
-if file_not_exists "$MAIN_BIN"; then log_error "Main script '$MAIN_BIN' not found"; fi
-if [[ ! -x "$MAIN_BIN" ]]; then log_error "Main script '$MAIN_BIN' is not executable"; fi
+if file_not_exists "$MAIN_BIN"; then log_and_abort "Main script '$MAIN_BIN' not found"; fi
+if [[ ! -x "$MAIN_BIN" ]]; then log_and_abort "Main script '$MAIN_BIN' is not executable"; fi
 
 log_debug_delimiter_start 1 "CRON JOB SETUP"
 setup_cron_job "$SCRIPT_NAME_WITHOUT_EXTENSION" "$CRON_SCHEDULE" "$CRON_JOB_COMMAND" ||
-    log_error "Failed to set up cron job"
+    log_and_abort "Failed to set up cron job"
 log_debug_delimiter_end 1 "CRON JOB SETUP"
 
 log_notice "Started successfully"
 
 log_debug "Tail the log file to keep the container running..."
 tail -f "$CONST_CRON_JOB_LOG_FILE" ||
-    log error "Failed to tail the log file '$CONST_CRON_JOB_LOG_FILE'"
+    log_and_abort "Failed to tail the log file '$CONST_CRON_JOB_LOG_FILE'"
