@@ -426,31 +426,52 @@ function setup_cron_job {
     log_debug_var "setup_cron_job" "cron_job_log_dir"
 
     create_dir_if_not_exists "$cron_job_log_dir" ||
-        log_error "Failed to create directory '$cron_job_log_dir'"
+        {
+            log_warn "Failed to create directory '$cron_job_log_dir'"
+            return 1
+        }
 
     log_info "Creating cron job file..."
     echo "$cron_job" >"$cron_job_file" ||
-        log_error "Failed to create cron job file '$cron_job_file'"
+        {
+            log_warn "Failed to create cron job file '$cron_job_file'"
+            return 1
+        }
 
     log_info "Setting permissions for cron job file..."
     chmod 0644 "$cron_job_file" ||
-        log_error "Failed to set permissions for cron job file '$cron_job_file'"
+        {
+            log_warn "Failed to set permissions for cron job file '$cron_job_file'"
+            return 1
+        }
 
     log_info "Creating cron job log file..."
     touch "$cron_job_log_file" ||
-        log_error "Failed to create cron job log file '$cron_job_log_file'"
+        {
+            log_warn "Failed to create cron job log file '$cron_job_log_file'"
+            return 1
+        }
 
     log_info "Setting permissions for cron job log file..."
     chmod 0666 "$cron_job_log_file" ||
-        log_error "Failed to set permissions for cron job log file '$cron_job_log_file'"
+        {
+            log_warn "Failed to set permissions for cron job log file '$cron_job_log_file'"
+            return 1
+        }
 
     log_info "Adding cron job..."
     crontab "$cron_job_file" ||
-        log_error "Failed to add cron job"
+        {
+            log_warn "Failed to add cron job"
+            return 1
+        }
 
     log_info "Starting cron service..."
     service cron start ||
-        log_error "Failed to start cron service"
+        {
+            log_warn "Failed to start cron service"
+            return 1
+        }
 
     log_notice "Cron job set up successfully"
 }
@@ -517,7 +538,8 @@ if file_not_exists "$MAIN_BIN"; then log_error "Main script '$MAIN_BIN' not foun
 if [[ ! -x "$MAIN_BIN" ]]; then log_error "Main script '$MAIN_BIN' is not executable"; fi
 
 log_debug_delimiter_start 1 "CRON JOB SETUP"
-setup_cron_job "$SCRIPT_NAME_WITHOUT_EXTENSION" "$CRON_SCHEDULE" "$CRON_JOB_COMMAND"
+setup_cron_job "$SCRIPT_NAME_WITHOUT_EXTENSION" "$CRON_SCHEDULE" "$CRON_JOB_COMMAND" ||
+    log_error "Failed to set up cron job"
 log_debug_delimiter_end 1 "CRON JOB SETUP"
 
 log_notice "Started successfully"
