@@ -30,6 +30,10 @@
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
+declare -r CONST_LOG_LEVEL_FOR_CURRENT_SCRIPT=6 # Set to '7' for debugging the current script
+declare -r CONST_LOG_DIR="/var/log/"
+declare -r CONST_CRON_JOB_LOG_FILE="${CONST_LOG_DIR}cron/cron.log"
+
 declare -r CONST_IS_PYTHON_PREINSTALLED=false # If Python is preinstalled, set to 'true', but be careful that Python is correctly installed
 declare -r CONST_SYSTEM_PYTHON_PACKAGES=(
     "python3"
@@ -37,9 +41,6 @@ declare -r CONST_SYSTEM_PYTHON_PACKAGES=(
     "python3-pip"
 )
 declare -r CONST_VENV_DIR="/opt/venv"
-
-declare -r CONST_LOG_DIR="/var/log/"
-declare -r CONST_CRON_JOB_LOG_FILE="${CONST_LOG_DIR}cron/cron.log"
 
 declare -r CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
 
@@ -59,6 +60,8 @@ function abort {
 
 if [[ -z "$LOG_LEVEL" ]]; then abort "'LOG_LEVEL' not set"; fi
 if [[ -z "$CRON_SCHEDULE" ]]; then abort "'CRON_SCHEDULE' not set"; fi
+
+declare -r CONST_LOG_LEVEL_FOR_CRON_JOB="$LOG_LEVEL"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -127,6 +130,8 @@ LOG_DIR="$CONST_LOG_DIR"
 ENABLE_SIMPLE_LOG_DIR_STRUCTURE=true
 # shellcheck disable=SC2034
 ENABLE_COMBINED_LOG_FILES=false
+# shellcheck disable=SC2034
+LOG_LEVEL="$CONST_LOG_LEVEL_FOR_CURRENT_SCRIPT"
 # shellcheck disable=SC2034
 LOG_LEVEL_FOR_SYSTEM_LOGGING=4
 # shellcheck disable=SC2034
@@ -498,7 +503,7 @@ function setup_cron_job {
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-log_debug_var "ENV" "LOG_LEVEL"
+log_debug_var "ENV" "CONST_LOG_LEVEL_FOR_CRON_JOB"
 log_debug_var "ENV" "CRON_SCHEDULE"
 
 # ╔═════════════════════╦══════════════════════╗
@@ -526,9 +531,9 @@ log_debug_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
 MAIN_BIN="/usr/bin/main.bash"
 
 if is_var_not_empty "$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB"; then
-    CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\" \"$CONST_LOG_DIR\" \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
+    CRON_JOB_COMMAND="$MAIN_BIN \"$CONST_LOG_LEVEL_FOR_CRON_JOB\" \"$CONST_LOG_DIR\" \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
 else
-    CRON_JOB_COMMAND="$MAIN_BIN \"$LOG_LEVEL\" \"$CONST_LOG_DIR\""
+    CRON_JOB_COMMAND="$MAIN_BIN \"$CONST_LOG_LEVEL_FOR_CRON_JOB\" \"$CONST_LOG_DIR\""
 fi
 
 # ╔═════════════════════╦══════════════════════╗
