@@ -116,7 +116,7 @@ CRON_JOB_MINUTES=10
 CRON_SCHEDULE="*/$CRON_JOB_MINUTES * * * *"
 
 echo
-echo "Enter the git repo url for the 'simbashlog' notifier (leave empty if not needed):"
+echo "Enter the git repo url for the 'simbashlog' notifier (press enter if not needed):"
 read -r GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER ||
     abort "Failed to read the git repo url for the 'simbashlog' notifier"
 echo
