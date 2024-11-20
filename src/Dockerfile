@@ -69,7 +69,7 @@ RUN apt-get clean && \
 
 RUN echo "Setup run script..."
 
-COPY run.bash /usr/bin/run.bash
-RUN chmod +x /usr/bin/run.bash
+COPY init.bash /usr/bin/init.bash
+RUN chmod +x /usr/bin/init.bash
 
-CMD ["/usr/bin/run.bash"]
+CMD ["/usr/bin/init.bash"]
