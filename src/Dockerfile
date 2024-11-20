@@ -40,7 +40,7 @@ RUN /tmp/repo_script_installer.bash "https://github.com/fuchs-fabian/simbashlog.
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║                   MAIN                     ║
+# ║                MAIN SCRIPT                 ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
@@ -63,11 +63,11 @@ RUN apt-get clean && \
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║              SETUP RUN SCRIPT              ║
+# ║             SETUP INIT SCRIPT              ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-RUN echo "Setup run script..."
+RUN echo "Setup init script..."
 
 COPY init.bash /usr/bin/init.bash
 RUN chmod +x /usr/bin/init.bash
