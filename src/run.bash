@@ -30,6 +30,8 @@
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
+declare -r CONST_ORIGINAL_PATH="$PATH"
+
 declare -r CONST_LOG_LEVEL_FOR_CURRENT_SCRIPT=6 # Set to '7' for debugging the current script
 declare -r CONST_LOG_DIR="/var/log/"
 declare -r CONST_CRON_JOB_LOG_FILE="${CONST_LOG_DIR}cron/cron.log"
@@ -497,6 +499,8 @@ function setup_cron_job {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
+log_debug "Log level for current script: '$CONST_LOG_LEVEL_FOR_CURRENT_SCRIPT'"
+
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
 # ║           ENVIRONMENT VARIABLES            ║
@@ -517,6 +521,7 @@ setup_simbashlog_notifier "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ||
     {
         log_warn "No notifications will be sent because the '$CONST_SIMBASHLOG_NAME' notifier setup failed"
         set_simbashlog_notifier_for_cron_job ""
+        export PATH="$CONST_ORIGINAL_PATH"
     }
 log_debug_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
 

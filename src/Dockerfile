@@ -44,7 +44,7 @@ RUN /tmp/repo_script_installer.bash "https://github.com/fuchs-fabian/simbashlog.
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-RUN echo "Adding main script..."
+RUN echo "Adding main script for cron job..."
 
 COPY main.bash /usr/bin/main.bash
 RUN chmod +x /usr/bin/main.bash
