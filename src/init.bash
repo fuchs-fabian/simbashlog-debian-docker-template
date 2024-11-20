@@ -42,7 +42,7 @@ declare -r CONST_SYSTEM_PYTHON_PACKAGES=(
     "python3-venv"
     "python3-pip"
 )
-declare -r CONST_VENV_DIR="/opt/venv"
+declare -r CONST_VENV_DIR="/opt/venv/"
 
 declare -r CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
 
@@ -246,7 +246,7 @@ function install_python {
             return 1
         }
 
-    export PATH="$venv_dir/bin:$PATH" ||
+    export PATH="${venv_dir}bin:$PATH" ||
         {
             log_warn "Failed to set 'PATH' to include the Python virtual environment in '$venv_dir'"
             return 1
@@ -422,6 +422,8 @@ function setup_cron_job {
     log_debug_var "setup_cron_job" "script_name_without_extension"
     log_debug_var "setup_cron_job" "cron_schedule"
     log_debug_var "setup_cron_job" "cron_job_command"
+
+    log_notice "Setting up cron job..."
 
     local cron_job_log_file="$CONST_CRON_JOB_LOG_FILE"
     local cron_job_file="/etc/cron.d/${script_name_without_extension}_cron_task"
