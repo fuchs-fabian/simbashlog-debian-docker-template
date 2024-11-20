@@ -21,6 +21,8 @@ ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # │            REPO SCRIPT INSTALLER           │
 # └─────────────────────┴──────────────────────┘
 
+RUN echo "Adding script to install scripts from git repositories..."
+
 COPY repo_script_installer.bash /tmp/repo_script_installer.bash
 RUN chmod +x /tmp/repo_script_installer.bash
 
@@ -51,23 +53,23 @@ RUN chmod +x /usr/bin/main.bash
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║               CLEAN UP IMAGE               ║
+# ║                  CLEANUP                   ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-RUN echo "Clean up image..."
+RUN echo "Cleanup..."
 
 RUN apt-get clean && \
     apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/* /var/tmp/* /tmp/*
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║             SETUP INIT SCRIPT              ║
+# ║                INIT SCRIPT                 ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-RUN echo "Setup init script..."
+RUN echo "Adding init script..."
 
 COPY init.bash /usr/bin/init.bash
 RUN chmod +x /usr/bin/init.bash
