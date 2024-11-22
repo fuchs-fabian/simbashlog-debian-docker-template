@@ -80,10 +80,30 @@ function abort {
     exit 1
 }
 
-if [[ -z "$LOG_LEVEL" ]]; then abort "'LOG_LEVEL' not set"; fi
-if [[ -z "$CRON_SCHEDULE" ]]; then abort "'CRON_SCHEDULE' not set"; fi
+function print_env_var_or_abort {
+    local var_name="$1"
+    local abort_on_empty="${2:-false}"
 
-declare -r CONST_LOG_LEVEL_FOR_CRON_JOB="$LOG_LEVEL"
+    local prefix="[ENV]"
+
+    if [[ "$abort_on_empty" == "true" && -z "${!var_name}" ]]; then
+        abort "$prefix '$var_name' not set"
+    fi
+
+    echo "$prefix '${var_name}': '${!var_name}'"
+}
+
+# TODO: Add all variables that are defined in the 'docker-compose.yml' file under 'environment' here
+print_env_var_or_abort "LOG_LEVEL" true
+print_env_var_or_abort "CRON_SCHEDULE" true
+print_env_var_or_abort "GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER"
+
+# shellcheck disable=SC2153
+declare -r CONST_CRON_JOB_LOG_LEVEL="$LOG_LEVEL"
+# shellcheck disable=SC2153
+declare -r CONST_CRON_JOB_SCHEDULE="$CRON_SCHEDULE"
+# shellcheck disable=SC2153
+declare -r CONST_GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER="$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -171,6 +191,11 @@ function log_and_abort {
     exit 1
 }
 
+function log_and_fail {
+    log_warn "$1"
+    return 1
+}
+
 function log_debug_var {
     local scope="$1"
     log_debug "$scope -> $(print_var_with_current_value "$2")"
@@ -227,10 +252,7 @@ function create_dir_if_not_exists {
         log_info "Creating directory '$dir'..."
 
         mkdir -p "$dir" ||
-            {
-                log_warn "Failed to create directory '$dir'"
-                return 1
-            }
+            log_and_fail "Failed to create directory '$dir'"
     else
         log_debug "Directory '$dir' already exists"
     fi
@@ -261,16 +283,10 @@ function install_python {
     log_debug_var "install_python" "venv_dir"
 
     python3 -m venv $venv_dir ||
-        {
-            log_warn "Failed to create Python virtual environment in '$venv_dir'"
-            return 1
-        }
+        log_and_fail "Failed to create Python virtual environment in '$venv_dir'"
 
     export PATH="${venv_dir}bin:$PATH" ||
-        {
-            log_warn "Failed to set 'PATH' to include the Python virtual environment in '$venv_dir'"
-            return 1
-        }
+        log_and_fail "Failed to set 'PATH' to include the Python virtual environment in '$venv_dir'"
 
     log_info "Python installed successfully"
 
@@ -325,10 +341,7 @@ function install_python_simbashlog_notifier {
     python_packages_before_install=$(pip freeze)
 
     pip install --no-cache-dir "git+$repo_url" ||
-        {
-            log_warn "Failed to install Python '$CONST_SIMBASHLOG_NAME' notifier from '$repo_url' with pip"
-            return 1
-        }
+        log_and_fail "Failed to install Python '$CONST_SIMBASHLOG_NAME' notifier from '$repo_url' with pip"
 
     local python_packages_after_install
     python_packages_after_install=$(pip freeze)
@@ -380,10 +393,7 @@ function setup_python_simbashlog_notifier {
 
     if is_false "$is_python_preinstalled"; then
         install_python ||
-            {
-                log_warn "Failed to install Python"
-                return 1
-            }
+            log_and_fail "Failed to install Python"
     fi
 
     install_python_simbashlog_notifier "$repo_url" ||
@@ -417,10 +427,7 @@ function setup_simbashlog_notifier {
         log_notice "No '$CONST_SIMBASHLOG_NAME' notifier will be installed"
     else
         setup_python_simbashlog_notifier "$repo_url" ||
-            {
-                log_warn "Failed set up Python '$CONST_SIMBASHLOG_NAME' notifier"
-                return 1
-            }
+            log_and_fail "Failed to set up Python '$CONST_SIMBASHLOG_NAME' notifier"
     fi
 
     log_info "'$CONST_SIMBASHLOG_NAME' notifier set up successfully"
@@ -461,52 +468,31 @@ function setup_cron_job {
     log_debug_var "setup_cron_job" "cron_job_log_dir"
 
     create_dir_if_not_exists "$cron_job_log_dir" ||
-        {
-            log_warn "Failed to create directory '$cron_job_log_dir'"
-            return 1
-        }
+        log_and_fail "Failed to create directory '$cron_job_log_dir'"
 
     log_info "Creating cron job file..."
     echo "$cron_job" >"$cron_job_file" ||
-        {
-            log_warn "Failed to create cron job file '$cron_job_file'"
-            return 1
-        }
+        log_and_fail "Failed to create cron job file '$cron_job_file'"
 
     log_info "Setting permissions for cron job file..."
     chmod 0644 "$cron_job_file" ||
-        {
-            log_warn "Failed to set permissions for cron job file '$cron_job_file'"
-            return 1
-        }
+        log_and_fail "Failed to set permissions for cron job file '$cron_job_file'"
 
     log_info "Creating cron job log file..."
     touch "$cron_job_log_file" ||
-        {
-            log_warn "Failed to create cron job log file '$cron_job_log_file'"
-            return 1
-        }
+        log_and_fail "Failed to create cron job log file '$cron_job_log_file'"
 
     log_info "Setting permissions for cron job log file..."
     chmod 0666 "$cron_job_log_file" ||
-        {
-            log_warn "Failed to set permissions for cron job log file '$cron_job_log_file'"
-            return 1
-        }
+        log_and_fail "Failed to set permissions for cron job log file '$cron_job_log_file'"
 
     log_info "Adding cron job..."
     crontab "$cron_job_file" ||
-        {
-            log_warn "Failed to add cron job"
-            return 1
-        }
+        log_and_fail "Failed to add cron job"
 
     log_info "Starting cron service..."
     service cron start ||
-        {
-            log_warn "Failed to start cron service"
-            return 1
-        }
+        log_and_fail "Failed to start cron service"
 
     log_notice "Cron job set up successfully"
 
@@ -525,21 +511,12 @@ log_debug "Log level for current script: '$CONST_LOG_LEVEL_FOR_CURRENT_SCRIPT'"
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║           ENVIRONMENT VARIABLES            ║
-# ║                                            ║
-# ╚═════════════════════╩══════════════════════╝
-
-log_debug_var "ENV" "CONST_LOG_LEVEL_FOR_CRON_JOB"
-log_debug_var "ENV" "CRON_SCHEDULE"
-
-# ╔═════════════════════╦══════════════════════╗
-# ║                                            ║
 # ║          SIMBASHLOG NOTIFIER LOGIC         ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
 log_debug_delimiter_start 1 "SIMBASHLOG NOTIFIER SETUP"
-setup_simbashlog_notifier "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ||
+setup_simbashlog_notifier "$CONST_GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ||
     {
         log_warn "No notifications will be sent because the '$CONST_SIMBASHLOG_NAME' notifier setup failed"
         set_simbashlog_notifier_for_cron_job ""
@@ -553,13 +530,19 @@ log_debug_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-# TODO: Adjust the current section to your needs, but the following variables are required: 'CRON_JOB_COMMAND'
+# TODO: Adjust the current section to your needs
 
-CRON_JOB_COMMAND="$CONST_MAIN_SCRIPT_PATH \"$CONST_LOG_LEVEL_FOR_CRON_JOB\" \"$CONST_LOG_DIR\""
+function get_cron_job_command {
+    local cron_job_command
 
-if is_var_not_empty "$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB"; then
-    CRON_JOB_COMMAND="$CRON_JOB_COMMAND \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
-fi
+    cron_job_command="$CONST_MAIN_SCRIPT_PATH \"$CONST_CRON_JOB_LOG_LEVEL\" \"$CONST_LOG_DIR\""
+
+    if is_var_not_empty "$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB"; then
+        cron_job_command="$cron_job_command \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
+    fi
+
+    echo "$cron_job_command"
+}
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
@@ -567,18 +550,39 @@ fi
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-if is_var_empty "$CRON_JOB_COMMAND"; then log_and_abort "'CRON_JOB_COMMAND' not set"; fi
+function init_cron_job {
+    if file_not_exists "$CONST_MAIN_SCRIPT_PATH"; then
+        log_and_fail "Main script '$CONST_MAIN_SCRIPT_PATH' not found"
+    fi
 
-SCRIPT_NAME_WITHOUT_EXTENSION=$(extract_basename_without_file_extensions_from_file "$CONST_MAIN_SCRIPT_PATH")
-if is_var_empty "$SCRIPT_NAME_WITHOUT_EXTENSION"; then log_and_abort "'SCRIPT_NAME_WITHOUT_EXTENSION' not set. Something went wrong."; fi
+    if [[ ! -x "$CONST_MAIN_SCRIPT_PATH" ]]; then
+        log_and_fail "Main script '$CONST_MAIN_SCRIPT_PATH' is not executable"
+    fi
 
-if file_not_exists "$CONST_MAIN_SCRIPT_PATH"; then log_and_abort "Main script '$CONST_MAIN_SCRIPT_PATH' not found"; fi
-if [[ ! -x "$CONST_MAIN_SCRIPT_PATH" ]]; then log_and_abort "Main script '$CONST_MAIN_SCRIPT_PATH' is not executable"; fi
+    local script_name_without_extension
+    script_name_without_extension=$(extract_basename_without_file_extensions_from_file "$CONST_MAIN_SCRIPT_PATH")
 
-log_debug_delimiter_start 1 "CRON JOB SETUP"
-setup_cron_job "$SCRIPT_NAME_WITHOUT_EXTENSION" "$CRON_SCHEDULE" "$CRON_JOB_COMMAND" ||
-    log_and_abort "Failed to set up cron job"
-log_debug_delimiter_end 1 "CRON JOB SETUP"
+    if is_var_empty "$script_name_without_extension"; then
+        log_and_fail "Could not extract script name without file extension from '$CONST_MAIN_SCRIPT_PATH'"
+    fi
+
+    local cron_job_command
+    cron_job_command=$(get_cron_job_command)
+
+    if is_var_empty "$cron_job_command"; then
+        log_and_fail "Failed to get cron job command"
+    fi
+
+    log_debug_delimiter_start 1 "CRON JOB SETUP"
+    setup_cron_job "$script_name_without_extension" "$CONST_CRON_JOB_SCHEDULE" "$cron_job_command" ||
+        log_and_fail "Failed to set up cron job"
+    log_debug_delimiter_end 1 "CRON JOB SETUP"
+
+    return 0
+}
+
+init_cron_job ||
+    log_and_abort "Failed to initialize cron job"
 
 log_notice "Started successfully"
 
