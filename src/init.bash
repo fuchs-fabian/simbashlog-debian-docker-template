@@ -330,6 +330,10 @@ function set_simbashlog_notifier_for_cron_job {
     SIMBASHLOG_NOTIFIER_FOR_CRON_JOB="$notifier"
 }
 
+function get_simbashlog_notifier_for_cron_job {
+    echo "$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB"
+}
+
 function install_python_simbashlog_notifier {
     local repo_url="$1"
 
@@ -537,8 +541,11 @@ function get_cron_job_command {
 
     cron_job_command="$CONST_MAIN_SCRIPT_PATH \"$CONST_CRON_JOB_LOG_LEVEL\" \"$CONST_LOG_DIR\""
 
-    if is_var_not_empty "$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB"; then
-        cron_job_command="$cron_job_command \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
+    local simbashlog_notifier
+    simbashlog_notifier=$(get_simbashlog_notifier_for_cron_job)
+
+    if is_var_not_empty "$simbashlog_notifier"; then
+        cron_job_command="$cron_job_command \"$simbashlog_notifier\""
     fi
 
     echo "$cron_job_command"
