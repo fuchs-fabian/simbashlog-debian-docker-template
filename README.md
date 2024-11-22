@@ -63,6 +63,18 @@ docker compose down
 nano .env
 ```
 
+The `.env` file should look like this:
+
+<!--
+TODO: Adjust the content of the `.env` file
+-->
+
+```plain
+LOG_LEVEL=6
+CRON_SCHEDULE=*/10 * * * *
+GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER=''
+```
+
 As the log files are mounted on the host by default, the files could become very large in the long term. The log files should therefore be deleted from time to time.
 
 The log files are located under `volumes/logs/`.
