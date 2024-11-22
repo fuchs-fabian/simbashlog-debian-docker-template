@@ -1,7 +1,29 @@
 #!/usr/bin/env sh
 
-PROJECT_GIT_REPO_URL="https://github.com/fuchs-fabian/simbashlog-debian-docker-template.git" # TODO: Set the git repo url for the project
-PROJECT_NAME=$(basename $PROJECT_GIT_REPO_URL .git)
+REPO_URL="https://github.com/fuchs-fabian/simbashlog-debian-docker-template.git" # TODO: Set the git repo url for the project
+BRANCH_NAME="main"                                                               # TODO: Set the branch name for the project
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░              GENERAL UTILS               ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+abort() {
+    echo "ERROR: $1"
+    echo "Aborting..."
+    exit 1
+}
+
+check_command() {
+    cmd="$1"
+
+    echo "Checking if the '$cmd' command is available..."
+    command -v "$cmd" >/dev/null 2>&1 ||
+        abort "The '$cmd' command is not available. Please install it and try again."
+}
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -11,23 +33,13 @@ PROJECT_NAME=$(basename $PROJECT_GIT_REPO_URL .git)
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
+PROJECT_NAME=$(basename $REPO_URL .git)
+
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
 # ║               CHECK COMMANDS               ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
-
-check_command() {
-    cmd="$1"
-
-    echo "Checking if the '$cmd' command is available..."
-    command -v "$cmd" >/dev/null 2>&1 ||
-        {
-            echo "The '$cmd' command is not available. Please install it and try again."
-            exit 1
-        }
-    echo "The '$cmd' command is available."
-}
 
 # TODO: Add more commands if needed
 check_command "git"
@@ -35,11 +47,7 @@ check_command "docker"
 
 echo "Checking if 'docker compose' is available..."
 docker compose version >/dev/null 2>&1 ||
-    {
-        echo "The 'docker compose' command is not available."
-        exit 1
-    }
-echo "The 'docker compose' command is available."
+    abort "The 'docker compose' command is not available"
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
@@ -47,7 +55,7 @@ echo "The 'docker compose' command is available."
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-# TODO: Remove this if not needed
+# TODO: Remove this section if not needed
 
 if [ -d "$PROJECT_NAME" ]; then
     echo
@@ -55,43 +63,12 @@ if [ -d "$PROJECT_NAME" ]; then
     read -r REMOVE_DIR
     if [ "$REMOVE_DIR" = "y" ]; then
         rm -rf "$PROJECT_NAME" ||
-            {
-                echo "Failed to remove the directory '$PROJECT_NAME'."
-                exit 1
-            }
-        echo
+            abort "Failed to remove the directory '$PROJECT_NAME'"
     else
-        echo "The install script cannot continue. You have to set up manually."
-        echo "Aborting..."
-        exit 1
+        abort "The install script cannot continue. You have to set up manually!"
     fi
+    echo
 fi
-
-# ╔═════════════════════╦══════════════════════╗
-# ║                                            ║
-# ║             CLONE REPOSITORY               ║
-# ║                                            ║
-# ╚═════════════════════╩══════════════════════╝
-
-echo "Cloning the repository '$PROJECT_GIT_REPO_URL'..."
-git clone $PROJECT_GIT_REPO_URL ||
-    {
-        echo "Failed to clone the repository '$PROJECT_GIT_REPO_URL'."
-        exit 1
-    }
-echo "The repository '$PROJECT_GIT_REPO_URL' has been cloned."
-
-# ╔═════════════════════╦══════════════════════╗
-# ║                                            ║
-# ║             MOVE TO PROJECT DIR            ║
-# ║                                            ║
-# ╚═════════════════════╩══════════════════════╝
-
-cd "$PROJECT_NAME" ||
-    {
-        echo "The directory '$PROJECT_NAME' does not exist. Something went wrong."
-        exit 1
-    }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -101,7 +78,30 @@ cd "$PROJECT_NAME" ||
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
+echo
 echo "Installing '$PROJECT_NAME'..."
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║             CLONE REPOSITORY               ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+if [ -z "$BRANCH_NAME" ]; then BRANCH_NAME="main"; fi
+
+echo "Cloning '$REPO_URL' from branch '$BRANCH_NAME'..."
+
+git clone --branch "$BRANCH_NAME" "$REPO_URL" ||
+    abort "Failed to clone '$REPO_URL' from branch '$BRANCH_NAME'"
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║             MOVE TO PROJECT DIR            ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+cd "$PROJECT_NAME" ||
+    abort "The directory '$PROJECT_NAME' does not exist. Something went wrong."
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
@@ -116,13 +116,9 @@ CRON_JOB_MINUTES=10
 CRON_SCHEDULE="*/$CRON_JOB_MINUTES * * * *"
 
 echo
-echo "Enter the git repo url for the 'simbashlog' notifier (leave empty if not needed):"
+echo "Enter the git repo url for the 'simbashlog' notifier (press enter if not needed):"
 read -r GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER ||
-    {
-        echo "Failed to read the git repo url for the 'simbashlog' notifier."
-        exit 1
-    }
-export GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER
+    abort "Failed to read the git repo url for the 'simbashlog' notifier"
 echo
 
 # TODO: Add more variables for the '.env' file if needed. Do not forget to add them to the '.env' file creation below.
@@ -135,25 +131,19 @@ GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER='$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER'
 EOF
 
 cat .env ||
-    {
-        echo "Failed to create the '.env' file."
-        exit 1
-    }
-echo "The '.env' file has been created."
+    abort "Failed to create the '.env' file"
 
 echo
-
-echo "The log level is set to '$LOG_LEVEL'."
+echo "The log level is set to '$LOG_LEVEL'"
 echo "  (0 = emergency, 1 = alert, 2 = critical, 3 = error, 4 = warning, 5 = notice, 6 = info, 7 = debug)"
 
 echo "The cron job will run every $CRON_JOB_MINUTES minutes."
 
 if [ -n "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ]; then
-    echo "The git repo url for the 'simbashlog' notifier is set to '$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER'."
+    echo "The git repo url for the 'simbashlog' notifier is set to '$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER'"
 else
-    echo "The git repo url for the 'simbashlog' notifier is not set."
+    echo "The git repo url for the 'simbashlog' notifier is not set"
 fi
-
 echo
 
 # ╔═════════════════════╦══════════════════════╗
@@ -169,33 +159,12 @@ echo
 echo "Removing unnecessary git artifacts..."
 
 rm -rf .git ||
-    {
-        echo "Failed to remove the '.git' directory from the project directory."
-        exit 1
-    }
-echo "The '.git' directory has been removed from the project directory."
+    abort "Failed to remove the '.git' directory from the project directory"
 
 rm install.sh ||
-    {
-        echo "Failed to remove the install script from the project directory."
-        exit 1
-    }
-echo "The install script has been removed from the project directory."
+    abort "Failed to remove the install script from the project directory"
 
 # TODO: Add more cleanup for git artifacts if needed
-
-# ┌─────────────────────┬──────────────────────┐
-# │               INSTALL SCRIPT               │
-# └─────────────────────┴──────────────────────┘
-
-echo "Removing the current install script..."
-
-rm ../install.sh ||
-    {
-        echo "Failed to remove the current install script."
-        exit 1
-    }
-echo "The current install script has been removed."
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
@@ -203,14 +172,15 @@ echo "The current install script has been removed."
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-echo "Running the Docker container for '$PROJECT_NAME'..."
-docker compose up -d ||
-    {
-        echo "Failed to run the Docker container."
-        exit 1
-    }
-echo "The Docker container is running."
-
-echo "The installation for '$PROJECT_NAME' is complete."
 echo
-echo "INFO: If a 'simbashlog' notifier is set and you have to configure it, you have to shut down the container, adjust the configuration and restart the container."
+echo "Do you want to run the Docker container for '$PROJECT_NAME' now? (y/n)"
+read -r RUN_CONTAINER
+if [ "$RUN_CONTAINER" = "y" ]; then
+    echo "Running the Docker container for '$PROJECT_NAME'..."
+    docker compose up -d ||
+        abort "Failed to run the Docker container"
+fi
+
+echo "The installation for '$PROJECT_NAME' is complete"
+echo
+echo "INFO: If a 'simbashlog' notifier is set and you have to configure it, you have to shut down the container, adjust the configuration and restart the container"

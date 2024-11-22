@@ -14,7 +14,7 @@ services:
       # Logs - Comment out to disable logging to host
       - type: bind
         source: ./volumes/logs
-        target: /var/log
+        target: /var/log/cron # Change to '/var/log' if all logs should be saved
         bind:
           create_host_path: true
       # simbashlog notifier config - Comment out if no simbashlog notifier is used

@@ -17,15 +17,20 @@ RUN apt-get install -y \
 ENV SHELL /bin/bash
 ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+# ┌─────────────────────┬──────────────────────┐
+# │            REPO SCRIPT INSTALLER           │
+# └─────────────────────┴──────────────────────┘
+
+RUN echo "Adding script to install scripts from git repositories..."
+
+COPY repo_script_installer.bash /tmp/repo_script_installer.bash
+RUN chmod +x /tmp/repo_script_installer.bash
+
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
 # ║                 SIMBASHLOG                 ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
-
-# ┌─────────────────────┬──────────────────────┐
-# │         INSTALL SIMBASHLOG (CORE)          │
-# └─────────────────────┴──────────────────────┘
 
 RUN echo "Installing 'simbashlog' core..."
 
@@ -33,64 +38,40 @@ RUN apt-get install -y \
     procps \
     jq
 
-COPY install_simbashlog.sh /bin/install_simbashlog.sh
-RUN chmod +x /bin/install_simbashlog.sh
-RUN /bin/install_simbashlog.sh
-RUN rm /bin/install_simbashlog.sh
-
-# ┌─────────────────────┬──────────────────────┐
-# │ SETUP ENVIRONMENT FOR SIMBASHLOG NOTIFIERS │
-# └─────────────────────┴──────────────────────┘
-
-RUN echo "Setting up python environment for 'simbashlog' notifiers..."
-
-# Install python3
-RUN apt-get install -y \
-    python3 \
-    python3-venv \
-    python3-pip
-
-# Create venv
-RUN python3 -m venv /opt/venv
-
-# Add venv to PATH
-ENV PATH /opt/venv/bin:$PATH
-
-# Create simbashlog-notifier config directory due to volume mount
-RUN mkdir -p /root/.config/simbashlog-notifier
+RUN /tmp/repo_script_installer.bash "https://github.com/fuchs-fabian/simbashlog.git" "v1.1.3"
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║                   MAIN                     ║
+# ║                MAIN SCRIPT                 ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-RUN echo "Installing 'main'..."
+RUN echo "Adding main script for cron job..."
 
-COPY main.bash /bin/main.bash
-RUN chmod +x /bin/main.bash
+COPY main.bash /usr/bin/main.bash
+RUN chmod +x /usr/bin/main.bash
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║               CLEAN UP IMAGE               ║
+# ║                  CLEANUP                   ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-RUN echo "Clean up image..."
+RUN echo "Cleanup..."
 
 RUN apt-get clean && \
     apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/* /var/tmp/* /tmp/*
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║              SETUP RUN SCRIPT              ║
+# ║                INIT SCRIPT                 ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-RUN echo "Setup run script..."
+RUN echo "Adding init script..."
 
-COPY run.bash /bin/run.bash
-RUN chmod +x /bin/run.bash
+COPY init.bash /usr/bin/init.bash
+RUN chmod +x /usr/bin/init.bash
 
-CMD ["/bin/run.bash"]
+CMD ["/usr/bin/init.bash"]
