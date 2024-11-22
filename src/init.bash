@@ -84,13 +84,11 @@ function print_env_var_or_abort {
     local var_name="$1"
     local abort_on_empty="${2:-false}"
 
-    local prefix="[ENV]"
-
     if [[ "$abort_on_empty" == "true" && -z "${!var_name}" ]]; then
-        abort "$prefix '$var_name' not set"
+        abort "'$var_name' not set"
     fi
 
-    echo "$prefix '${var_name}': '${!var_name}'"
+    echo "'${var_name}': '${!var_name}'"
 }
 
 # TODO: Add all variables that are defined in the 'docker-compose.yml' file under 'environment' here
