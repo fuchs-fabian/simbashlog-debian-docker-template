@@ -465,7 +465,7 @@ function setup_cron_job {
     log_debug_var "setup_cron_job" "cron_schedule"
     log_debug_var "setup_cron_job" "cron_job_command"
 
-    log_notice "Setting up cron job..."
+    log_info "Setting up cron job..."
 
     local cron_job_log_file="$CONST_CRON_JOB_LOG_FILE"
     local cron_job_file="/etc/cron.d/${script_name_without_extension}_cron_task"
@@ -488,49 +488,49 @@ function setup_cron_job {
             return 1
         }
 
-    log_info "Creating cron job file..."
+    log_debug "Creating cron job file..."
     echo "$cron_job" >"$cron_job_file" ||
         {
             log_warn "Failed to create cron job file '$cron_job_file'"
             return 1
         }
 
-    log_info "Setting permissions for cron job file..."
+    log_debug "Setting permissions for cron job file..."
     chmod 0644 "$cron_job_file" ||
         {
             log_warn "Failed to set permissions for cron job file '$cron_job_file'"
             return 1
         }
 
-    log_info "Creating cron job log file..."
+    log_debug "Creating cron job log file..."
     touch "$cron_job_log_file" ||
         {
             log_warn "Failed to create cron job log file '$cron_job_log_file'"
             return 1
         }
 
-    log_info "Setting permissions for cron job log file..."
+    log_debug "Setting permissions for cron job log file..."
     chmod 0666 "$cron_job_log_file" ||
         {
             log_warn "Failed to set permissions for cron job log file '$cron_job_log_file'"
             return 1
         }
 
-    log_info "Adding cron job..."
+    log_debug "Adding cron job..."
     crontab "$cron_job_file" ||
         {
             log_warn "Failed to add cron job"
             return 1
         }
 
-    log_info "Starting cron service..."
+    log_debug "Starting cron service..."
     service cron start ||
         {
             log_warn "Failed to start cron service"
             return 1
         }
 
-    log_notice "Cron job set up successfully"
+    log_info "Cron job set up successfully"
 
     return 0
 }
