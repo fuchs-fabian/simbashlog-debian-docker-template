@@ -5,7 +5,7 @@
 #
 #
 # DESCRIPTION:
-# TODO: Add a description
+# This script is called in the cron job.
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -96,7 +96,9 @@ function find_bin_script {
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-# MORE INFO: https://github.com/fuchs-fabian/simbashlog/wiki#use-simbashlog
+# MORE INFO:
+# - https://github.com/fuchs-fabian/simbashlog/wiki#use-simbashlog
+# - https://github.com/fuchs-fabian/simbashlog?tab=readme-ov-file#-before-and-after-sourcing
 
 declare -rx CONST_LOGGER_NAME="simbashlog"
 
@@ -110,8 +112,6 @@ source "$CONST_ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
     abort "Unable to source logger script '$CONST_ORIGINAL_LOGGER_SCRIPT_PATH'"
 
 # TODO: Adjust the following log settings or add more if needed
-
-# MORE INFO: https://github.com/fuchs-fabian/simbashlog?tab=readme-ov-file#-before-and-after-sourcing
 
 # shellcheck disable=SC2034
 ENABLE_LOG_FILE=true
