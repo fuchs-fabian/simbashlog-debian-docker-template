@@ -30,11 +30,25 @@
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-declare -r CONST_ORIGINAL_PATH="$PATH"
+declare -r CONST_ORIGINAL_PATH_ENV="$PATH"
+
+declare -r CONST_MAIN_SCRIPT_PATH="/usr/bin/main.bash"
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                  LOGGING                   ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
 
 declare -r CONST_LOG_LEVEL_FOR_CURRENT_SCRIPT=6 # Set to '7' for debugging the current script
 declare -r CONST_LOG_DIR="/var/log/"
 declare -r CONST_CRON_JOB_LOG_FILE="${CONST_LOG_DIR}cron/cron.log"
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                  PYTHON                    ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
 
 declare -r CONST_IS_PYTHON_PREINSTALLED=false # If Python is preinstalled, set to 'true', but be careful that Python is correctly installed
 declare -r CONST_SYSTEM_PYTHON_PACKAGES=(
@@ -43,6 +57,12 @@ declare -r CONST_SYSTEM_PYTHON_PACKAGES=(
     "python3-pip"
 )
 declare -r CONST_VENV_DIR="/opt/venv/"
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                SIMBASHLOG                  ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
 
 declare -r CONST_SIMBASHLOG_NOTIFIER_CONFIG_DIR="/root/.config/simbashlog-notifier"
 
@@ -523,7 +543,7 @@ setup_simbashlog_notifier "$GIT_REPO_URL_FOR_SIMBASHLOG_NOTIFIER" ||
     {
         log_warn "No notifications will be sent because the '$CONST_SIMBASHLOG_NAME' notifier setup failed"
         set_simbashlog_notifier_for_cron_job ""
-        export PATH="$CONST_ORIGINAL_PATH"
+        export PATH="$CONST_ORIGINAL_PATH_ENV"
     }
 log_debug_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
 
@@ -533,14 +553,12 @@ log_debug_delimiter_end 1 "SIMBASHLOG NOTIFIER SETUP"
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-# TODO: Adjust the current section to your needs, but the following variables are required: 'MAIN_BIN', 'CRON_JOB_COMMAND'
+# TODO: Adjust the current section to your needs, but the following variables are required: 'CRON_JOB_COMMAND'
 
-MAIN_BIN="/usr/bin/main.bash"
+CRON_JOB_COMMAND="$CONST_MAIN_SCRIPT_PATH \"$CONST_LOG_LEVEL_FOR_CRON_JOB\" \"$CONST_LOG_DIR\""
 
 if is_var_not_empty "$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB"; then
-    CRON_JOB_COMMAND="$MAIN_BIN \"$CONST_LOG_LEVEL_FOR_CRON_JOB\" \"$CONST_LOG_DIR\" \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
-else
-    CRON_JOB_COMMAND="$MAIN_BIN \"$CONST_LOG_LEVEL_FOR_CRON_JOB\" \"$CONST_LOG_DIR\""
+    CRON_JOB_COMMAND="$CRON_JOB_COMMAND \"$SIMBASHLOG_NOTIFIER_FOR_CRON_JOB\""
 fi
 
 # ╔═════════════════════╦══════════════════════╗
@@ -551,11 +569,11 @@ fi
 
 if is_var_empty "$CRON_JOB_COMMAND"; then log_and_abort "'CRON_JOB_COMMAND' not set"; fi
 
-SCRIPT_NAME_WITHOUT_EXTENSION=$(extract_basename_without_file_extensions_from_file "$MAIN_BIN")
+SCRIPT_NAME_WITHOUT_EXTENSION=$(extract_basename_without_file_extensions_from_file "$CONST_MAIN_SCRIPT_PATH")
 if is_var_empty "$SCRIPT_NAME_WITHOUT_EXTENSION"; then log_and_abort "'SCRIPT_NAME_WITHOUT_EXTENSION' not set. Something went wrong."; fi
 
-if file_not_exists "$MAIN_BIN"; then log_and_abort "Main script '$MAIN_BIN' not found"; fi
-if [[ ! -x "$MAIN_BIN" ]]; then log_and_abort "Main script '$MAIN_BIN' is not executable"; fi
+if file_not_exists "$CONST_MAIN_SCRIPT_PATH"; then log_and_abort "Main script '$CONST_MAIN_SCRIPT_PATH' not found"; fi
+if [[ ! -x "$CONST_MAIN_SCRIPT_PATH" ]]; then log_and_abort "Main script '$CONST_MAIN_SCRIPT_PATH' is not executable"; fi
 
 log_debug_delimiter_start 1 "CRON JOB SETUP"
 setup_cron_job "$SCRIPT_NAME_WITHOUT_EXTENSION" "$CRON_SCHEDULE" "$CRON_JOB_COMMAND" ||
