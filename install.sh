@@ -173,7 +173,7 @@ rm install.sh ||
 # ╚═════════════════════╩══════════════════════╝
 
 echo
-echo "Do you want to run the Docker container for '$PROJECT_NAME' now? (y/n)"
+echo "Do you want to run the Docker container for '$PROJECT_NAME' now? (y/N)"
 read -r RUN_CONTAINER
 if [ "$RUN_CONTAINER" = "y" ]; then
     echo "Running the Docker container for '$PROJECT_NAME'..."
