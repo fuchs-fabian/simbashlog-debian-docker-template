@@ -38,7 +38,7 @@ RUN apt-get install -y \
     procps \
     jq
 
-RUN /tmp/repo_script_installer.bash "https://github.com/fuchs-fabian/simbashlog.git" "v1.1.3"
+RUN /tmp/repo_script_installer.bash "https://github.com/fuchs-fabian/simbashlog.git" "v1.1.4"
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
